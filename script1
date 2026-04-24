@@ -1,0 +1,80 @@
+import subprocess
+import requests
+import time
+
+# Configurações do Alvo
+TARGET_URL = "https://seu-alvo.com.br"
+TARGET_DOMAIN = "seu-alvo.com.br"
+
+def run_command(command):
+    try:
+        result = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT)
+        return result.decode('utf-8')
+    except subprocess.CalledProcessError as e:
+        return f"Erro ao executar: {e.output.decode('utf-8')}"
+
+## 1. Reconhecimento e DNS (Fingerprinting)
+def check_dns():
+    print(f"\n--- Analisando DNS para {TARGET_DOMAIN} ---")
+    # Verifica se resolve para AWS (Load Balancer costuma ter nomes longos de CNAME)
+    dns_info = run_command(f"dig {TARGET_DOMAIN} ANY")
+    print(dns_info)
+    
+    # Busca por IPs específicos para identificar SPOF
+    ips = run_command(f"nslookup {TARGET_DOMAIN} | grep 'Address' | tail -n +2")
+    print(f"IPs encontrados:\n{ips}")
+
+## 2. Headers de Segurança e SSL
+def check_security_headers():
+    print("\n--- Verificando Headers de Segurança e TLS ---")
+    try:
+        response = requests.get(TARGET_URL)
+        headers = response.headers
+        
+        security_headers = [
+            "Strict-Transport-Security", 
+            "X-Content-Type-Options", 
+            "Content-Security-Policy"
+        ]
+        
+        for header in security_headers:
+            status = headers.get(header, "NÃO ENCONTRADO")
+            print(f"{header}: {status}")
+            
+    except Exception as e:
+        print(f"Erro na conexão: {e}")
+
+## 3. Simulação de Ataque Camada 7 (WAF Check)
+def check_waf():
+    print("\n--- Testando Proteção de Camada 7 (XSS Payload) ---")
+    payload = "<script>alert(1)</script>"
+    test_url = f"{TARGET_URL}/?search={payload}"
+    
+    try:
+        response = requests.get(test_url)
+        if response.status_code == 403:
+            print("Resultado: [BLOQUEADO] Possível presença de WAF (403 Forbidden).")
+        elif response.status_code == 200:
+            print("Resultado: [VULNERÁVEL] Requisição aceita. Ausência de inspeção de camada 7.")
+        else:
+            print(f"Resultado: Status inesperado ({response.status_code})")
+    except Exception as e:
+        print(f"Erro no teste de WAF: {e}")
+
+## 4. Stress Test (Resiliência)
+def run_stress_test():
+    print("\n--- Iniciando Stress Test (Apache Benchmark) ---")
+    # Inicia com 10 conexões, total de 100 requisições
+    print("Executando carga leve (c=10, n=100)...")
+    result = run_command(f"ab -n 100 -c 10 {TARGET_URL}/")
+    
+    # Filtra métricas interessantes
+    for line in result.split('\n'):
+        if "Requests per second" in line or "Time per request" in line or "Failed requests" in line:
+            print(line.strip())
+
+if __name__ == "__main__":
+    check_dns()
+    check_security_headers()
+    check_waf()
+    run_stress_test()
