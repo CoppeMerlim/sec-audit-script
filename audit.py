@@ -8,7 +8,7 @@ TARGET_DOMAIN = "cloud.plataforma.senac.br"
 
 def run_command(command):
     try:
-        # Usamos shell=True para facilitar o uso de pipes (|) se necessário
+        #  shell=True para facilitar o uso de pipes (|) se necessário
         result = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT)
         return result.decode('utf-8', errors='ignore')
     except subprocess.CalledProcessError as e:
@@ -52,7 +52,6 @@ def run_stress_test(concurrency, requests_count):
         print("Certifique-se de que o 'ab' (apache2-utils) está instalado.")
         return
 
-    # Filtros para extrair os dados palpáveis para o seu artigo
     metrics = {
         "Requests per second:": "Vazão (Throughput)",
         "Time per request:": "Latência Média",
@@ -75,7 +74,7 @@ if __name__ == "__main__":
     check_security_headers()
     check_waf()
     
-    # Teste comparativo para gerar dados para o artigo
+    # Teste comparativo 
     # Cenário A: Carga Leve
     run_stress_test(concurrency=10, requests_count=100)
     
